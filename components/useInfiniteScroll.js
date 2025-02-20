@@ -1,32 +1,43 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { fetchPosts } from '../services/PostService';
+import {  LOADING_STATES, ERROR_MESSAGES } from '../enums';
 
-const useInfiniteScroll = (limit = 10) => {
+const InfiniteScroll = ({ limit = 10, children }) => { 
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [loadingState, setLoadingState] = useState(LOADING_STATES.IDLE);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
 
   const loadMore = useCallback(async () => {
-    if (!hasMore || loading) return;
+    if (!hasMore || loadingState === LOADING_STATES.LOADING) return;
 
-    setLoading(true);
+    setLoadingState(LOADING_STATES.LOADING);
     setError(null);
 
     try {
-      const { data, totalCount } = await fetchPosts(page, limit);
+      const { data, totalCount } = await fetchPosts(page, limit); 
       setItems(prev => [...prev, ...data]);
-      setHasMore(page * limit < totalCount);
+      setHasMore(page * limit < totalCount); 
       setPage(prev => prev + 1);
+      setLoadingState(LOADING_STATES.SUCCESS);
     } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      setError(ERROR_MESSAGES.FETCH_FAILED);
+      setLoadingState(LOADING_STATES.ERROR);
     }
-  }, [page, hasMore, loading, limit]);
+  }, [page, hasMore, loadingState, limit]);
 
-  return { items, loading, error, hasMore, loadMore };
+  useEffect(() => {
+    loadMore();
+  }, []);
+
+  return children({
+    items,
+    loading: loadingState === LOADING_STATES.LOADING,
+    error,
+    hasMore,
+    loadMore,
+  });
 };
 
-export default useInfiniteScroll;
+export default InfiniteScroll;
